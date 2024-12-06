@@ -6,8 +6,8 @@ from app.forms import LoginForm
 from flask_login import current_user, login_user, logout_user, login_required
 from app.models import User
 from werkzeug.urls import url_parse
-
-from app.forms import RegistrationForm
+from datetime import datetime
+from app.forms import RegistrationForm,EditProfileForm
 
 
 #2个路由
@@ -69,4 +69,34 @@ def register():
 		return redirect(url_for('login'))
 	return render_template('register.html',title='Register',form=form)
 
+@app.route('/user/<username>')
+@login_required
+def user(username):
+	user = User.query.filter_by(username=username).first_or_404()
+	posts = [
+		{'author':user,'body':'Test post #1'},
+		{'author':user,'body':'Test post #2'},
+	]
+	return render_template('user.html',user=user,posts=posts)
 
+
+# 在用户向服务器发送请求时，为给定用户写入此字段的当前时间。
+# 记录上次访问的时间
+@app.before_request
+def before_request():
+	if current_user.is_authenticated:
+		current_user.last_seen = datetime.utcnow()
+		db.session.commit()
+
+# 为edit_profile添加路由
+@app.route('/edit_profile',methods=['GET','POST'])
+@login_required
+def edit_profile():
+	form = EditProfileForm()
+	if form.validate_on_submit():
+		current_user.about_me = form.about_me.data
+		db.session.commit()
+
+		flash('Your changes have been saved.')
+		return redirect(url_for('edit_profile'))
+	return render_template('edit_profile.html',title='Edit Profile',form=form)
